@@ -13,48 +13,51 @@ import (
 	"github.com/drone/drone-go/plugin"
 )
 
-type Vargs struct {
-	Webhook drone.StringSlice `json:"webhook"`
-}
+var (
+	build     string
+	buildDate string
+)
 
 func main() {
-	var (
-		repo  = new(drone.Repo)
-		build = new(drone.Build)
-		sys   = new(drone.System)
-		vargs = new(Vargs)
-	)
+	fmt.Printf("Drone Gitter Plugin built at %s\n", buildDate)
 
-	plugin.Param("repo", repo)
-	plugin.Param("build", build)
-	plugin.Param("system", sys)
-	plugin.Param("vargs", vargs)
-	plugin.Parse()
+	system := drone.System{}
+	repo := drone.Repo{}
+	build := drone.Build{}
+	vargs := Params{}
 
-	// gitter data structure
-	// old formats https://github.com/gitterHQ/services/blob/master/lib/drone/examples/enterprise_github_commit_success.json
-	data := struct {
-		Message string `json:"message"`
-		Icon    string `json:"icon"`
-		Level   string `json:"errorLevel"`
-	}{
-		message(repo, build, sys),
-		icon(build),
-		errorLevel(build),
-	}
+	plugin.Param("system", &system)
+	plugin.Param("repo", &repo)
+	plugin.Param("build", &build)
+	plugin.Param("vargs", &vargs)
+	plugin.MustParse()
 
-	// json payload that will be posted
-	payload, err := json.Marshal(&data)
+	payload, err := json.Marshal(&Payload{
+		message(&system, &repo, &build),
+		icon(&build),
+		level(&build),
+	})
+
 	if err != nil {
+		fmt.Println("Failed to generate payload")
+
 		os.Exit(1)
+		return
 	}
 
-	// post payload to each url
 	for _, url := range vargs.Webhook.Slice() {
-		resp, err := http.Post(url, "application/json", bytes.NewBuffer(payload))
+		resp, err := http.Post(
+			url,
+			"application/json",
+			bytes.NewBuffer(payload))
+
 		if err != nil {
+			fmt.Println("Failed to submit payload")
+
 			os.Exit(1)
+			return
 		}
+
 		resp.Body.Close()
 	}
 }
@@ -68,7 +71,7 @@ func icon(build *drone.Build) string {
 	}
 }
 
-func errorLevel(build *drone.Build) string {
+func level(build *drone.Build) string {
 	switch build.Status {
 	case drone.StatusSuccess:
 		return "normal"
@@ -77,76 +80,72 @@ func errorLevel(build *drone.Build) string {
 	}
 }
 
-// helper function that extracts the pull request
-// number from the merge ref.
-func extractNumber(ref string) string {
-	return regexp.MustCompile("([0-9]+)").FindString(ref)
-}
-
-// helper function that returns a message based on
-// the build event type.
-func message(repo *drone.Repo, build *drone.Build, sys *drone.System) string {
+func message(system *drone.System, repo *drone.Repo, build *drone.Build) string {
 	switch build.Event {
 	case drone.EventPull:
-		return pullRequest(repo, build, sys)
+		return pr(system, repo, build)
 	case drone.EventDeploy:
-		return deploy(repo, build, sys)
+		return deploy(system, repo, build)
 	case drone.EventTag:
-		return tag(repo, build, sys)
+		return tag(system, repo, build)
 	default:
-		return push(repo, build, sys)
+		return push(system, repo, build)
 	}
 }
 
-func push(repo *drone.Repo, build *drone.Build, sys *drone.System) string {
+func push(system *drone.System, repo *drone.Repo, build *drone.Build) string {
 	return fmt.Sprintf(
 		"Drone [%s](%s) (%s) [%s](%s/%s/%d) (%s)",
 		repo.FullName,
 		build.Link,
 		build.Branch,
 		build.Status,
-		sys.Link,
+		system.Link,
 		repo.FullName,
 		build.Number,
 		build.Commit[:7],
 	)
 }
 
-func pullRequest(repo *drone.Repo, build *drone.Build, sys *drone.System) string {
+func pr(system *drone.System, repo *drone.Repo, build *drone.Build) string {
 	return fmt.Sprintf(
 		"Drone [%s](%s) (pull request \\#%s) [%s](%s/%s/%d)",
 		repo.FullName,
 		build.Link,
 		extractNumber(build.Ref),
 		build.Status,
-		sys.Link,
+		system.Link,
 		repo.FullName,
 		build.Number,
 	)
 }
 
-func tag(repo *drone.Repo, build *drone.Build, sys *drone.System) string {
+func tag(system *drone.System, repo *drone.Repo, build *drone.Build) string {
 	return fmt.Sprintf(
 		"Drone [%s](%s) (tag %s) [%s](%s/%s/%d)",
 		repo.FullName,
 		build.Link,
 		filepath.Base(build.Ref),
 		build.Status,
-		sys.Link,
+		system.Link,
 		repo.FullName,
 		build.Number,
 	)
 }
 
-func deploy(repo *drone.Repo, build *drone.Build, sys *drone.System) string {
+func deploy(system *drone.System, repo *drone.Repo, build *drone.Build) string {
 	return fmt.Sprintf(
 		"Drone [%s](%s) (deploy to %s) [%s](%s/%s/%d)",
 		repo.FullName,
 		build.Link,
 		build.Deploy,
 		build.Status,
-		sys.Link,
+		system.Link,
 		repo.FullName,
 		build.Number,
 	)
+}
+
+func extractNumber(ref string) string {
+	return regexp.MustCompile("([0-9]+)").FindString(ref)
 }

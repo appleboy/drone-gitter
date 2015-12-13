@@ -1,6 +1,12 @@
-Use the Gitter plugin to send build status updates to [Gitter](https://gitter.im) when a build completes. The status updates are displayed in a room's activity feed.
+Use this plugin for sending build status notifications via Gitter. The status
+updates are displayed in a room's activity feed. You can override the default
+configuration with the following parameters:
 
-Example configuration:
+* `webhook` - A single or a list of webhooks
+
+## Example
+
+The following is a sample configuration in your .drone.yml file:
 
 ```yaml
 notify:
@@ -8,7 +14,12 @@ notify:
     webhook: https://webhooks.gitter.im/e/91e06797227ae5dbe6ec
 ```
 
-Example configuration to notify multiple rooms:
+### Multiple Channels
+
+In some cases you want to send notifications to multiple different channels
+to. In that case you can simply provide a list of webhooks.
+
+Example configuration that sends multiple message:
 
 ```yaml
 notify:
