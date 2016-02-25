@@ -4,7 +4,7 @@
 [![Coverage Status](https://aircover.co/badges/drone-plugins/drone-gitter/coverage.svg)](https://aircover.co/drone-plugins/drone-gitter)
 [![](https://badge.imagelayers.io/plugins/drone-gitter:latest.svg)](https://imagelayers.io/?images=plugins/drone-gitter:latest 'Get your own badge on imagelayers.io')
 
-Drone plugin to send build status notifications via Gitter
+Drone plugin to send build status notifications via Gitter. For the usage information and a listing of the available options please take a look at [the docs](DOCS.md).
 
 ## Binary
 
