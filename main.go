@@ -77,6 +77,11 @@ func main() {
 			EnvVar: "DRONE_BUILD_STATUS",
 		},
 		cli.StringFlag{
+			Name:   "build.deploy",
+			Usage:  "build deployment target",
+			EnvVar: "DRONE_DEPLOY_TO",
+		},
+		cli.StringFlag{
 			Name:   "build.link",
 			Usage:  "build link",
 			EnvVar: "DRONE_BUILD_LINK",
@@ -102,6 +107,7 @@ func run(c *cli.Context) {
 			Number: c.Int("build.number"),
 			Event:  c.String("build.event"),
 			Status: c.String("build.status"),
+			Deploy: c.String("build.deploy"),
 			Link:   c.String("build.link"),
 		},
 		Config: Config{
