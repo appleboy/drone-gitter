@@ -1,150 +1,116 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
-	"path/filepath"
-	"regexp"
 
-	"github.com/drone/drone-go/drone"
-	"github.com/drone/drone-go/plugin"
+	"github.com/codegangsta/cli"
+	_ "github.com/joho/godotenv/autoload"
 )
 
-var (
-	buildCommit string
-)
+var version string // build number set at compile-time
 
 func main() {
-	fmt.Printf("Drone Gitter Plugin built from %s\n", buildCommit)
+	app := cli.NewApp()
+	app.Name = "gitter"
+	app.Usage = "gitter plugin"
+	app.Action = run
+	app.Version = version
+	app.Flags = []cli.Flag{
+		cli.StringFlag{
+			Name:   "webhook",
+			Usage:  "gitter webhook url",
+			EnvVar: "GITTER_WEBHOOK",
+		},
+		cli.StringFlag{
+			Name:   "repo.owner",
+			Usage:  "repository owner",
+			EnvVar: "DRONE_REPO_OWNER",
+		},
+		cli.StringFlag{
+			Name:   "repo.name",
+			Usage:  "repository name",
+			EnvVar: "DRONE_REPO_NAME",
+		},
+		cli.StringFlag{
+			Name:   "commit.sha",
+			Usage:  "git commit sha",
+			EnvVar: "DRONE_COMMIT_SHA",
+		},
+		cli.StringFlag{
+			Name:   "commit.branch",
+			Value:  "master",
+			Usage:  "git commit branch",
+			EnvVar: "DRONE_COMMIT_BRANCH",
+		},
+		cli.StringFlag{
+			Name:   "commit.link",
+			Usage:  "git commit link",
+			EnvVar: "DRONE_COMMIT_LINK",
+		},
+		cli.StringFlag{
+			Name:   "commit.ref",
+			Value:  "refs/heads/master",
+			Usage:  "git commit ref",
+			EnvVar: "DRONE_COMMIT_REF",
+		},
+		cli.StringFlag{
+			Name:   "commit.author",
+			Usage:  "git author name",
+			EnvVar: "DRONE_COMMIT_AUTHOR",
+		},
+		cli.StringFlag{
+			Name:   "build.event",
+			Value:  "push",
+			Usage:  "build event",
+			EnvVar: "DRONE_BUILD_EVENT",
+		},
+		cli.IntFlag{
+			Name:   "build.number",
+			Usage:  "build number",
+			EnvVar: "DRONE_BUILD_NUMBER",
+		},
+		cli.StringFlag{
+			Name:   "build.status",
+			Usage:  "build status",
+			Value:  "success",
+			EnvVar: "DRONE_BUILD_STATUS",
+		},
+		cli.StringFlag{
+			Name:   "build.link",
+			Usage:  "build link",
+			EnvVar: "DRONE_BUILD_LINK",
+		},
+	}
+	app.Run(os.Args)
+}
 
-	system := drone.System{}
-	repo := drone.Repo{}
-	build := drone.Build{}
-	vargs := Params{}
+func run(c *cli.Context) {
+	plugin := Plugin{
+		Repo: Repo{
+			Owner: c.String("repo.owner"),
+			Name:  c.String("repo.name"),
+		},
+		Commit: Commit{
+			Sha:    c.String("commit.sha"),
+			Ref:    c.String("commit.ref"),
+			Branch: c.String("commit.branch"),
+			Author: c.String("commit.author"),
+			Link:   c.String("commit.link"),
+		},
+		Build: Build{
+			Number: c.Int("build.number"),
+			Event:  c.String("build.event"),
+			Status: c.String("build.status"),
+			Link:   c.String("build.link"),
+		},
+		Config: Config{
+			Webhook: c.String("webhook"),
+		},
+	}
 
-	plugin.Param("system", &system)
-	plugin.Param("repo", &repo)
-	plugin.Param("build", &build)
-	plugin.Param("vargs", &vargs)
-	plugin.MustParse()
-
-	payload, err := json.Marshal(&Payload{
-		message(&system, &repo, &build),
-		icon(&build),
-		level(&build),
-	})
-
-	if err != nil {
-		fmt.Println("Failed to generate payload")
-
+	if err := plugin.Exec(); err != nil {
+		fmt.Println(err)
 		os.Exit(1)
-		return
 	}
-
-	for _, url := range vargs.Webhook.Slice() {
-		resp, err := http.Post(
-			url,
-			"application/json",
-			bytes.NewBuffer(payload))
-
-		if err != nil {
-			fmt.Println("Failed to submit payload")
-
-			os.Exit(1)
-			return
-		}
-
-		resp.Body.Close()
-	}
-}
-
-func icon(build *drone.Build) string {
-	switch build.Status {
-	case drone.StatusSuccess:
-		return "smile"
-	default:
-		return "frown"
-	}
-}
-
-func level(build *drone.Build) string {
-	switch build.Status {
-	case drone.StatusSuccess:
-		return "normal"
-	default:
-		return "error"
-	}
-}
-
-func message(system *drone.System, repo *drone.Repo, build *drone.Build) string {
-	switch build.Event {
-	case drone.EventPull:
-		return pr(system, repo, build)
-	case drone.EventDeploy:
-		return deploy(system, repo, build)
-	case drone.EventTag:
-		return tag(system, repo, build)
-	default:
-		return push(system, repo, build)
-	}
-}
-
-func push(system *drone.System, repo *drone.Repo, build *drone.Build) string {
-	return fmt.Sprintf(
-		"Drone [%s](%s) (%s) [%s](%s/%s/%d) (%s)",
-		repo.FullName,
-		build.Link,
-		build.Branch,
-		build.Status,
-		system.Link,
-		repo.FullName,
-		build.Number,
-		build.Commit[:7],
-	)
-}
-
-func pr(system *drone.System, repo *drone.Repo, build *drone.Build) string {
-	return fmt.Sprintf(
-		"Drone [%s](%s) (pull request \\#%s) [%s](%s/%s/%d)",
-		repo.FullName,
-		build.Link,
-		extractNumber(build.Ref),
-		build.Status,
-		system.Link,
-		repo.FullName,
-		build.Number,
-	)
-}
-
-func tag(system *drone.System, repo *drone.Repo, build *drone.Build) string {
-	return fmt.Sprintf(
-		"Drone [%s](%s) (tag %s) [%s](%s/%s/%d)",
-		repo.FullName,
-		build.Link,
-		filepath.Base(build.Ref),
-		build.Status,
-		system.Link,
-		repo.FullName,
-		build.Number,
-	)
-}
-
-func deploy(system *drone.System, repo *drone.Repo, build *drone.Build) string {
-	return fmt.Sprintf(
-		"Drone [%s](%s) (deploy to %s) [%s](%s/%s/%d)",
-		repo.FullName,
-		build.Link,
-		build.Deploy,
-		build.Status,
-		system.Link,
-		repo.FullName,
-		build.Number,
-	)
-}
-
-func extractNumber(ref string) string {
-	return regexp.MustCompile("([0-9]+)").FindString(ref)
 }
