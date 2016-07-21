@@ -1,97 +1,50 @@
-# drone-gitter
+# drone-slack
 
-[![Build Status](http://beta.drone.io/api/badges/drone-plugins/drone-gitter/status.svg)](http://beta.drone.io/drone-plugins/drone-gitter)
-[![Coverage Status](https://aircover.co/badges/drone-plugins/drone-gitter/coverage.svg)](https://aircover.co/drone-plugins/drone-gitter)
-[![](https://badge.imagelayers.io/plugins/drone-gitter:latest.svg)](https://imagelayers.io/?images=plugins/drone-gitter:latest 'Get your own badge on imagelayers.io')
+Drone plugin for sending Gitter notifications
 
-Drone plugin to send build status notifications via Gitter. For the usage information and a listing of the available options please take a look at [the docs](DOCS.md).
+## Build
 
-## Binary
-
-Build the binary using `make`:
+Build the binary with the following commands:
 
 ```
-make deps build
-```
-
-### Example
-
-```sh
-./drone-gitter <<EOF
-{
-    "repo": {
-        "clone_url": "git://github.com/drone/drone",
-        "owner": "drone",
-        "name": "drone",
-        "full_name": "drone/drone"
-    },
-    "system": {
-        "link_url": "https://beta.drone.io"
-    },
-    "build": {
-        "number": 22,
-        "status": "success",
-        "started_at": 1421029603,
-        "finished_at": 1421029813,
-        "message": "Update the Readme",
-        "author": "johnsmith",
-        "author_email": "john.smith@gmail.com"
-        "event": "push",
-        "branch": "master",
-        "commit": "436b7a6e2abaddfd35740527353e78a227ddcb2c",
-        "ref": "refs/heads/master"
-    },
-    "workspace": {
-        "root": "/drone/src",
-        "path": "/drone/src/github.com/drone/drone"
-    },
-    "vargs": {
-        "webhook": "https://webhooks.gitter.im/e/91e06797227ae5dbe6ec"
-    }
-}
-EOF
+export GO15VENDOREXPERIMENT=1
+go build
+go test
 ```
 
 ## Docker
 
-Build the container using `make`:
+Build the docker image with the following commands:
 
 ```
-make deps docker
+export GO15VENDOREXPERIMENT=1
+GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -a -tags netgo
 ```
 
-### Example
+Please note incorrectly building the image for the correct x64 linux and with GCO disabled will result in an error when running the Docker image:
 
-```sh
-docker run -i plugins/drone-gitter <<EOF
-{
-    "repo": {
-        "clone_url": "git://github.com/drone/drone",
-        "owner": "drone",
-        "name": "drone",
-        "full_name": "drone/drone"
-    },
-    "system": {
-        "link_url": "https://beta.drone.io"
-    },
-    "build": {
-        "number": 22,
-        "status": "success",
-        "started_at": 1421029603,
-        "finished_at": 1421029813,
-        "message": "Update the Readme",
-        "author": "johnsmith",
-        "author_email": "john.smith@gmail.com"
-        "event": "push",
-        "branch": "master",
-        "commit": "436b7a6e2abaddfd35740527353e78a227ddcb2c",
-        "ref": "refs/heads/master"
-    },
-    "workspace": {
-        "webhook": "https://webhooks.gitter.im/e/91e06797227ae5dbe6ec"
-    },
-    "vargs": {
-    }
-}
-EOF
+```
+docker: Error response from daemon: Container command
+'/bin/drone-gitter' not found or does not exist..
+```
+
+## Usage
+
+Post the build status to a room:
+
+```
+docker run --rm \
+    -e GITTER_WEBHOOK=https://gitter.im/... \
+    -e DRONE_REPO_OWNER=octocat \
+    -e DRONE_REPO_NAME=hello-world \
+    -e DRONE_COMMIT_SHA=7fd1a60b01f91b314f59955a4e4d4e80d8edf11d \
+    -e DRONE_COMMIT_REF=refs/heads/master \
+    -e DRONE_COMMIT_BRANCH=master \
+    -e DRONE_COMMIT_AUTHOR=octocat \
+    -e DRONE_COMMIT_LINK=http://github.com/octocat/hello-world \
+    -e DRONE_BUILD_NUMBER=1 \
+    -e DRONE_BUILD_EVENT=push \
+    -e DRONE_BUILD_STATUS=success \
+    -e DRONE_BUILD_LINK=http://github.com/octocat/hello-world \
+    plugins/gitter
 ```
