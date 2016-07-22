@@ -32,7 +32,7 @@ type (
 	}
 
 	Config struct {
-		Webhook string
+		Webhook []string
 	}
 
 	Plugin struct {
@@ -61,11 +61,13 @@ func (p Plugin) Exec() error {
 		return err
 	}
 
-	resp, err := http.Post(p.Config.Webhook, "application/json", bytes.NewBuffer(in))
-	if err != nil {
-		return err
+	for _, webhook := range p.Config.Webhook {
+		resp, err := http.Post(webhook, "application/json", bytes.NewBuffer(in))
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
 	}
-	defer resp.Body.Close()
 	return nil
 }
 

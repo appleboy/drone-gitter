@@ -111,7 +111,7 @@ func run(c *cli.Context) {
 			Link:   c.String("build.link"),
 		},
 		Config: Config{
-			Webhook: c.String("webhook"),
+			Webhook: c.StringSlice("webhook"),
 		},
 	}
 
