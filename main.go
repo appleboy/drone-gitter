@@ -17,10 +17,10 @@ func main() {
 	app.Action = run
 	app.Version = version
 	app.Flags = []cli.Flag{
-		cli.StringFlag{
+		cli.StringSliceFlag{
 			Name:   "webhook",
 			Usage:  "gitter webhook url",
-			EnvVar: "GITTER_WEBHOOK",
+			EnvVar: "GITTER_WEBHOOK,PLUGIN_WEBHOOK",
 		},
 		cli.StringFlag{
 			Name:   "repo.owner",
