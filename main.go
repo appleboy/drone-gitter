@@ -1,10 +1,9 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
-	"github.com/codegangsta/cli"
+	"github.com/urfave/cli"
 	_ "github.com/joho/godotenv/autoload"
 )
 
@@ -17,10 +16,10 @@ func main() {
 	app.Action = run
 	app.Version = version
 	app.Flags = []cli.Flag{
-		cli.StringFlag{
+		cli.StringSliceFlag{
 			Name:   "webhook",
 			Usage:  "gitter webhook url",
-			EnvVar: "GITTER_WEBHOOK",
+			EnvVar: "GITTER_WEBHOOK,PLUGIN_WEBHOOK",
 		},
 		cli.StringFlag{
 			Name:   "repo.owner",
@@ -90,7 +89,7 @@ func main() {
 	app.Run(os.Args)
 }
 
-func run(c *cli.Context) {
+func run(c *cli.Context) error {
 	plugin := Plugin{
 		Repo: Repo{
 			Owner: c.String("repo.owner"),
@@ -111,12 +110,9 @@ func run(c *cli.Context) {
 			Link:   c.String("build.link"),
 		},
 		Config: Config{
-			Webhook: c.String("webhook"),
+			Webhook: c.StringSlice("webhook"),
 		},
 	}
 
-	if err := plugin.Exec(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	return plugin.Exec()
 }
